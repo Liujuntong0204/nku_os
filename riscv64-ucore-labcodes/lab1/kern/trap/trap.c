@@ -12,7 +12,7 @@
 
 #define TICK_NUM 100
 volatile size_t num=0;
-
+static int print_num=0;
 static void print_ticks() {
     cprintf("%d ticks\n", TICK_NUM);
 #ifdef DEBUG_GRADE
@@ -106,7 +106,24 @@ void interrupt_handler(struct trapframe *tf) {
             // In fact, Call sbi_set_timer will clear STIP, or you can clear it
             // directly.
             // cprintf("Supervisor timer interrupt\n");
-             /* LAB1 EXERCISE2   YOUR CODE :  */
+             /* LAB1 EXERCISE2   2213244 :  */
+            
+             // (1) 设置下次时钟中断
+            clock_set_next_event();
+            
+            // (2) 计数器（ticks）加一
+            ticks++;
+
+            // (3) 当计数器加到100时输出`100 ticks`
+            if (ticks % TICK_NUM == 0) {
+                print_ticks();
+                print_num++;  // 打印次数加一
+            }
+
+            // (4) 判断打印次数，当打印次数为10时，调用<sbi.h>中的关机函数
+            if (print_num == 10) {
+                sbi_shutdown();
+            }
             /*(1)设置下次时钟中断- clock_set_next_event()
              *(2)计数器（ticks）加一
              *(3)当计数器加到100的时候，我们会输出一个`100ticks`表示我们触发了100次时钟中断，同时打印次数（num）加一
@@ -145,7 +162,15 @@ void exception_handler(struct trapframe *tf) {
             break;
         case CAUSE_ILLEGAL_INSTRUCTION:
              // 非法指令异常处理
-             /* LAB1 CHALLENGE3   YOUR CODE :  */
+             /* LAB1 CHALLENGE3   2213244 :  */
+
+            // (1) 输出指令异常类型（Illegal instruction）
+            cprintf("Illegal instruction exception at 0x%08x\n", tf->epc);
+            // (2) 输出异常指令地址
+            cprintf("Exception address: 0x%08x\n", tf->epc);  
+            // (3) 更新 tf->epc 寄存器以跳过非法指令
+            tf->epc += 4;  // 假设每条指令为 4 字节，跳过非法指令
+
             /*(1)输出指令异常类型（ Illegal instruction）
              *(2)输出异常指令地址
              *(3)更新 tf->epc寄存器
@@ -153,7 +178,15 @@ void exception_handler(struct trapframe *tf) {
             break;
         case CAUSE_BREAKPOINT:
             //断点异常处理
-            /* LAB1 CHALLLENGE3   YOUR CODE :  */
+            /* LAB1 CHALLLENGE3   2213244 :  */
+
+            // (1) 输出指令异常类型（breakpoint）
+            cprintf("Breakpoint exception at 0x%08x\n", tf->epc);
+            // (2) 输出异常指令地址
+            cprintf("Breakpoint address: 0x%08x\n", tf->epc);
+            // (3) 更新 tf->epc 寄存器以跳过断点指令S
+            tf->epc += 4;  // 假设每条指令为 4 字节，跳过断点指令
+
             /*(1)输出指令异常类型（ breakpoint）
              *(2)输出异常指令地址
              *(3)更新 tf->epc寄存器
