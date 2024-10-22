@@ -2,7 +2,7 @@
 #include <list.h>
 #include <string.h>
 #include <default_pmm.h>
-
+#define MAX_ORDER 10
 /* In the first fit algorithm, the allocator keeps a list of free blocks (known as the free list) and,
    on receiving a request for memory, scans along the list for the first block that is large enough to
    satisfy the request. If the chosen block is significantly larger than that requested, then it is 
@@ -53,15 +53,18 @@
  *               (5.2) reset the fields of pages, such as p->ref, p->flags (PageProperty)
  *               (5.3) try to merge low addr or high addr blocks. Notice: should change some pages's p->property correctly.
  */
-free_area_t free_area1;
+free_area_t free_area1[MAX_ORDER+1];
 
-#define free_list (free_area1.free_list)
-#define nr_free (free_area1.nr_free)
+#define free_list(property) (free_area1[(property)].free_list)
+#define nr_free(property) (free_area1[(property)].nr_free)
 
 static void
 default_init(void) {
-    list_init(&free_list);
-    nr_free = 0;
+    for(int i=0;i<MAX_ORDER+1;i++)
+    {
+    list_init(&(free_area1[i].free_list));
+     free_area1[i].nr_free = 0;
+    }
 }
 
 static void
@@ -73,22 +76,34 @@ default_init_memmap(struct Page *base, size_t n) {
         p->flags = p->property = 0;
         set_page_ref(p, 0);
     }
-    base->property = n;
-    SetPageProperty(base);
-    nr_free += n;
-    if (list_empty(&free_list)) {
-        list_add(&free_list, &(base->page_link));
+    int order=0;//jie shu
+    p=base;
+    size_t remain=n;
+    while(remain!=0)//dang bu wei 2 de mi shi ,xun huan jin xing 
+    {
+        while (remain >= (1 << (order))) {
+        order++;
+    }
+    order--;
+    p->property=order;
+    SetPageProperty(p);
+    free_area1[order].nr_free+=1;
+    if (list_empty(&(free_area1[order].free_list))) {
+        list_add(&(free_area1[order].free_list), &(p->page_link));
     } else {
-        list_entry_t* le = &free_list;
-        while ((le = list_next(le)) != &free_list) {
+        list_entry_t* le = &(free_area1[order].free_list);
+        while ((le = list_next(le)) != &(free_area1[order].free_list)) {
             struct Page* page = le2page(le, page_link);
-            if (base < page) {
-                list_add_before(le, &(base->page_link));
+            if (p < page) {
+                list_add_before(le, &(p->page_link));
                 break;
-            } else if (list_next(le) == &free_list) {
-                list_add(le, &(base->page_link));
+            } else if (list_next(le) == &(free_area1[order].free_list)) {
+                list_add(le, &(p->page_link));
             }
         }
+    }
+    p=p+(1<<(order));
+    remain=remain-(1<<(order));
     }
 }
 
