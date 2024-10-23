@@ -2,7 +2,8 @@
 #include <list.h>
 #include <string.h>
 #include <default_pmm.h>
-#define MAX_ORDER 10
+#include <stdio.h>
+#define MAX_ORDER 14
 /* In the first fit algorithm, the allocator keeps a list of free blocks (known as the free list) and,
    on receiving a request for memory, scans along the list for the first block that is large enough to
    satisfy the request. If the chosen block is significantly larger than that requested, then it is 
@@ -76,36 +77,26 @@ default_init_memmap(struct Page *base, size_t n) {
         p->flags = p->property = 0;
         set_page_ref(p, 0);
     }
-    int order=0;//jie shu
     p=base;
     size_t remain=n;
-    while(remain!=0)//dang bu wei 2 de mi shi ,xun huan jin xing 
-    {
+   
+        int order=0;//jie shu
         while (remain >= (1 << (order))) {
         order++;
     }
     order--;
+    cprintf("The value of i is %d\n", order);
+     cprintf("The value of n is %d\n", n);
     p->property=order;
     SetPageProperty(p);
     free_area1[order].nr_free+=1;
-    if (list_empty(&(free_area1[order].free_list))) {
-        list_add(&(free_area1[order].free_list), &(p->page_link));
-    } else {
-        list_entry_t* le = &(free_area1[order].free_list);
-        while ((le = list_next(le)) != &(free_area1[order].free_list)) {
-            struct Page* page = le2page(le, page_link);
-            if (p < page) {
-                list_add_before(le, &(p->page_link));
-                break;
-            } else if (list_next(le) == &(free_area1[order].free_list)) {
-                list_add(le, &(p->page_link));
-            }
-        }
-    }
+    list_add(&(free_area1[order].free_list), &(p->page_link));
     p=p+(1<<(order));
     remain=remain-(1<<(order));
-    }
+    
 }
+    
+
 static void split_page(int order) {
     if(list_empty(&(free_area1[order].free_list))) {
         split_page(order + 1);
@@ -140,7 +131,7 @@ default_alloc_pages(size_t n) {
     int i=order;
     for (;i<=MAX_ORDER;i++)
     {
-        if(!list_empty(&(free_area1[order].free_list)))
+        if(!list_empty(&(free_area1[i].free_list)))
         {
             break;
         }
@@ -229,9 +220,9 @@ basic_check(void) {
     assert(p0 != p1 && p0 != p2 && p1 != p2);
     assert(page_ref(p0) == 0 && page_ref(p1) == 0 && page_ref(p2) == 0);
 
-    // assert(page2pa(p0) < npage * PGSIZE);
-    // assert(page2pa(p1) < npage * PGSIZE);
-    // assert(page2pa(p2) < npage * PGSIZE);
+    assert(page2pa(p0) < npage * PGSIZE);
+    assert(page2pa(p1) < npage * PGSIZE);
+    assert(page2pa(p2) < npage * PGSIZE);
 
     // list_entry_t free_list_store = free_list;
     // list_init(&free_list);
@@ -282,11 +273,11 @@ default_check(void) {
     // }
     // assert(total == nr_free_pages());
 
-    // basic_check();
+    basic_check();
 
-    struct Page *p0 = alloc_pages(5), *p1, *p2;
-    assert(p0 != NULL);
-    assert(!PageProperty(p0));
+    // struct Page *p0 = alloc_pages(5), *p1, *p2;
+    // assert(p0 != NULL);
+    // assert(!PageProperty(p0));
     
 
     // list_entry_t free_list_store = free_list;
@@ -340,8 +331,8 @@ const struct pmm_manager default_pmm_manager = {
     .init = default_init,
     .init_memmap = default_init_memmap,
     .alloc_pages = default_alloc_pages,
-    .free_pages = default_free_pages,
-    .nr_free_pages = default_nr_free_pages,
+    // .free_pages = default_free_pages,
+    // .nr_free_pages = default_nr_free_pages,
     .check = default_check,
 };
 
