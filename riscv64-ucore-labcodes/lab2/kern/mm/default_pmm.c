@@ -53,31 +53,31 @@
  *               (5.2) reset the fields of pages, such as p->ref, p->flags (PageProperty)
  *               (5.3) try to merge low addr or high addr blocks. Notice: should change some pages's p->property correctly.
  */
-free_area_t free_area;
+extern free_area_t free_area;
 
 #define free_list (free_area.free_list)
 #define nr_free (free_area.nr_free)
 
 static void
-default_init(void) {
+default_init(void) { // 初始化空闲列表 free_list
     list_init(&free_list);
-    nr_free = 0;
+    nr_free = 0; // 初始化空闲页数计数器 nr_free
 }
 
 static void
-default_init_memmap(struct Page *base, size_t n) {
+default_init_memmap(struct Page *base, size_t n) {// 初始化一个包含 n 页的内存块，并将其加入空闲链表
     assert(n > 0);
-    struct Page *p = base;
+    struct Page *p = base;//空闲内存块的起始地址, n: 空闲内存块的页数
     for (; p != base + n; p ++) {
         assert(PageReserved(p));
-        p->flags = p->property = 0;
+        p->flags = p->property = 0;//p->flags 和 p->property 清零，表示页面是空闲的
         set_page_ref(p, 0);
     }
-    base->property = n;
+    base->property = n;//将起始页的 property 设为该块的大小
     SetPageProperty(base);
-    nr_free += n;
+    nr_free += n;//更新 nr_free 以反映当前系统中空闲的页面总数
     if (list_empty(&free_list)) {
-        list_add(&free_list, &(base->page_link));
+        list_add(&free_list, &(base->page_link));//将该内存块按地址顺序插入链表 free_list 中
     } else {
         list_entry_t* le = &free_list;
         while ((le = list_next(le)) != &free_list) {
@@ -93,16 +93,16 @@ default_init_memmap(struct Page *base, size_t n) {
 }
 
 static struct Page *
-default_alloc_pages(size_t n) {
+default_alloc_pages(size_t n) {//分配 n 页的连续物理内存
     assert(n > 0);
     if (n > nr_free) {
         return NULL;
     }
     struct Page *page = NULL;
     list_entry_t *le = &free_list;
-    while ((le = list_next(le)) != &free_list) {
+    while ((le = list_next(le)) != &free_list) {//从 free_list 中搜索一个块大小大于等于 n 的空闲块。
         struct Page *p = le2page(le, page_link);
-        if (p->property >= n) {
+        if (p->property >= n) {//如果找到的块大小大于 n，则剩下的部分继续留在空闲链表中，并更新其 property 值。
             page = p;
             break;
         }
@@ -116,14 +116,16 @@ default_alloc_pages(size_t n) {
             SetPageProperty(p);
             list_add(prev, &(p->page_link));
         }
-        nr_free -= n;
+        nr_free -= n;//从空闲链表中删除分配的部分，更新 nr_free。
         ClearPageProperty(page);
     }
-    return page;
+    return page;//若未找到合适的块，返回 NULL。
 }
 
 static void
-default_free_pages(struct Page *base, size_t n) {
+default_free_pages(struct Page *base, size_t n) {//释放以 base 为起始地址的 n 页内存，将其重新加入空闲链表，并尝试合并相邻的空闲块。base: 要释放的内存块的起始页。n: 要释放的页数。
+   //检查是否可以和前后相邻的空闲块合并：
+//如果相邻块在地址上连续，则合并这些块，更新它们的 property，并将其从空闲链表中删除。
     assert(n > 0);
     struct Page *p = base;
     for (; p != base + n; p ++) {
@@ -173,12 +175,12 @@ default_free_pages(struct Page *base, size_t n) {
 }
 
 static size_t
-default_nr_free_pages(void) {
+default_nr_free_pages(void) {//返回当前系统中空闲页的总数。
     return nr_free;
 }
 
 static void
-basic_check(void) {
+basic_check(void) {//测试内存分配和释放的基本功能。
     struct Page *p0, *p1, *p2;
     p0 = p1 = p2 = NULL;
     assert((p0 = alloc_page()) != NULL);
