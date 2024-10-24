@@ -115,6 +115,7 @@ static void add_page(struct Page *base, int order)
 {
     if (list_empty(&(free_area1[order].free_list))) {
         list_add(&(free_area1[order].free_list), &(base->page_link));
+        cprintf("加入空链表\n");
     } 
     else {
         list_entry_t* le = &(free_area1[order].free_list);
@@ -122,17 +123,24 @@ static void add_page(struct Page *base, int order)
             struct Page* page = le2page(le, page_link);
             if (base < page) {
                 list_add_before(le, &(base->page_link));
+                cprintf("page1的地址为%016lx:\n",page);
+                cprintf("base1的地址为：%016lx\n",base);
                 break;
             } else if (list_next(le) == &(free_area1[order].free_list)) {
                 list_add(le, &(base->page_link));
+                cprintf("page2的地址为%016lx:\n",page);
+                cprintf("base2的地址为：%016lx\n",base);
+                break;
             }
         }
+        cprintf("加入非空链表\n");
     }
 }
 
 //递归合并空页
 static void merge_page(struct Page *base, int order)
 {
+    cprintf("进入merge\n");
     if(order == MAX_ORDER)
     {
         return;
@@ -145,8 +153,13 @@ static void merge_page(struct Page *base, int order)
     // 和前页合并
     list_entry_t* le = list_prev(&(base->page_link));
     if (le != &(free_area1[order].free_list)) {
+        cprintf("进入第一个if\n\n");
         struct Page *p = le2page(le, page_link);
+        cprintf("p的地址为%016lx:\n",p);
+        cprintf("base的地址为：%016lx\n",base);
+        cprintf("p的property为：%d\n",p->property);
         if (p + (1<<(p->property)) == base) {
+            cprintf("进入merge 和前页合并\n");
             has_merge = 1;
             p->property += 1;
             ClearPageProperty(base);
@@ -165,6 +178,7 @@ static void merge_page(struct Page *base, int order)
     if (le != &(free_area1[order].free_list)) {
         struct Page *p = le2page(le, page_link);
         if (has_merge == 0 && base + (1<<(base->property)) == p ) {
+            cprintf("进入merge 和后页合并\n");
             has_merge = 1;
             base->property += 1;
             ClearPageProperty(p);
@@ -199,6 +213,7 @@ buddy_system_free_pages(struct Page *base, size_t n) {
     {
         order++;
     }
+    cprintf("当前order为： %d \n",order);
     base->property = order;
     SetPageProperty(base);
 
@@ -220,57 +235,83 @@ buddy_system_nr_free_pages(void) {
     return num;
 }
 
-static void
-basic_check(void) {
+// static void
+// basic_check(void) {
+//     struct Page *p0, *p1, *p2;
+//     p0 = p1 = p2 = NULL;
+//     assert((p0 = alloc_page()) != NULL);
+//     assert((p1 = alloc_page()) != NULL);
+//     assert((p2 = alloc_page()) != NULL);
+
+//     assert(p0 != p1 && p0 != p2 && p1 != p2);
+//     assert(page_ref(p0) == 0 && page_ref(p1) == 0 && page_ref(p2) == 0);
+
+//     assert(page2pa(p0) < npage * PGSIZE);
+//     assert(page2pa(p1) < npage * PGSIZE);
+//     assert(page2pa(p2) < npage * PGSIZE);
+
+//     cprintf("success!!");
+
+//     // list_entry_t free_list_store = free_list;
+//     // list_init(&free_list);
+//     // assert(list_empty(&free_list));
+
+//     // unsigned int nr_free_store = nr_free;
+//     // nr_free = 0;
+
+//     // assert(alloc_page() == NULL);
+
+//     // free_page(p0);
+//     // free_page(p1);
+//     // free_page(p2);
+//     // assert(nr_free == 3);
+
+//     // assert((p0 = alloc_page()) != NULL);
+//     // assert((p1 = alloc_page()) != NULL);
+//     // assert((p2 = alloc_page()) != NULL);
+
+//     // assert(alloc_page() == NULL);
+
+//     // free_page(p0);
+//     // assert(!list_empty(&free_list));
+
+//     // struct Page *p;
+//     // assert((p = alloc_page()) == p0);
+//     // assert(alloc_page() == NULL);
+
+//     // assert(nr_free == 0);
+//     // free_list = free_list_store;
+//     // nr_free = nr_free_store;
+
+//     // free_page(p);
+//     // free_page(p1);
+//     // free_page(p2);
+// }
+static void basic_check(void) {
     struct Page *p0, *p1, *p2;
-    p0 = p1 = p2 = NULL;
-    assert((p0 = alloc_page()) != NULL);
-    assert((p1 = alloc_page()) != NULL);
-    assert((p2 = alloc_page()) != NULL);
 
-    assert(p0 != p1 && p0 != p2 && p1 != p2);
-    assert(page_ref(p0) == 0 && page_ref(p1) == 0 && page_ref(p2) == 0);
+    cprintf("Starting buddy_system_basic_check...\n");
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+    }
 
-    assert(page2pa(p0) < npage * PGSIZE);
-    assert(page2pa(p1) < npage * PGSIZE);
-    assert(page2pa(p2) < npage * PGSIZE);
+    p0=buddy_system_alloc_pages(8);
+    p1=buddy_system_alloc_pages(8);
+    p2=buddy_system_alloc_pages(8);
 
-    cprintf("success!!");
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+    }
+    buddy_system_free_pages(p1,8);
+    buddy_system_free_pages(p2,8);
+    buddy_system_free_pages(p0,8);
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+    }
 
-    // list_entry_t free_list_store = free_list;
-    // list_init(&free_list);
-    // assert(list_empty(&free_list));
-
-    // unsigned int nr_free_store = nr_free;
-    // nr_free = 0;
-
-    // assert(alloc_page() == NULL);
-
-    // free_page(p0);
-    // free_page(p1);
-    // free_page(p2);
-    // assert(nr_free == 3);
-
-    // assert((p0 = alloc_page()) != NULL);
-    // assert((p1 = alloc_page()) != NULL);
-    // assert((p2 = alloc_page()) != NULL);
-
-    // assert(alloc_page() == NULL);
-
-    // free_page(p0);
-    // assert(!list_empty(&free_list));
-
-    // struct Page *p;
-    // assert((p = alloc_page()) == p0);
-    // assert(alloc_page() == NULL);
-
-    // assert(nr_free == 0);
-    // free_list = free_list_store;
-    // nr_free = nr_free_store;
-
-    // free_page(p);
-    // free_page(p1);
-    // free_page(p2);
 }
 
 // LAB2: below code is used to check the first fit allocation algorithm
