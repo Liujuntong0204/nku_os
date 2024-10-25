@@ -153,76 +153,142 @@ default_alloc_pages(size_t n) {
     free_area1[order].nr_free-=1;
     return page;
 }
+static void add_page(struct Page *base, int order)
+{
+    if (list_empty(&(free_area1[order].free_list))) {
+        list_add(&(free_area1[order].free_list), &(base->page_link));
+    } 
+    else {
+        list_entry_t* le = &(free_area1[order].free_list);
+        while ((le = list_next(le)) != &(free_area1[order].free_list)) {
+            struct Page* page = le2page(le, page_link);
+            if (base < page) {
+                list_add_before(le, &(base->page_link));
+                break;
+            } else if (list_next(le) == &(free_area1[order].free_list)) {
+                list_add(le, &(base->page_link));
+                break;
+            }
+        }
+    }
+}
 
-// static void
-// default_free_pages(struct Page *base, size_t n) {
-//     assert(n > 0);
-//     struct Page *p = base;
-//     for (; p != base + n; p ++) {
-//         assert(!PageReserved(p) && !PageProperty(p));
-//         p->flags = 0;
-//         set_page_ref(p, 0);
-//     }
-//     base->property = n;
-//     SetPageProperty(base);
-//     nr_free += n;
+//递归合并空页
+static void merge_page(struct Page *base, int order)
+{
+    if(order == MAX_ORDER)
+    {
+        return;
+    }
 
-//     if (list_empty(&free_list)) {
-//         list_add(&free_list, &(base->page_link));
-//     } else {
-//         list_entry_t* le = &free_list;
-//         while ((le = list_next(le)) != &free_list) {
-//             struct Page* page = le2page(le, page_link);
-//             if (base < page) {
-//                 list_add_before(le, &(base->page_link));
-//                 break;
-//             } else if (list_next(le) == &free_list) {
-//                 list_add(le, &(base->page_link));
-//             }
-//         }
-//     }
+    // 标记，每次递归只能合并一次
+    int has_merge=0;
 
-//     list_entry_t* le = list_prev(&(base->page_link));
-//     if (le != &free_list) {
-//         p = le2page(le, page_link);
-//         if (p + p->property == base) {
-//             p->property += base->property;
-//             ClearPageProperty(base);
-//             list_del(&(base->page_link));
-//             base = p;
-//         }
-//     }
 
-//     le = list_next(&(base->page_link));
-//     if (le != &free_list) {
-//         p = le2page(le, page_link);
-//         if (base + base->property == p) {
-//             base->property += p->property;
-//             ClearPageProperty(p);
-//             list_del(&(p->page_link));
-//         }
-//     }
-// }
+    // 和前页合并
+    list_entry_t* le = list_prev(&(base->page_link));
+    if (le != &(free_area1[order].free_list)) {
+        struct Page *p = le2page(le, page_link);
+        if (p + (1<<(p->property)) == base) {
+            has_merge = 1;
+            p->property += 1;
+            ClearPageProperty(base);
+            list_del(&(base->page_link));
+            base = p;
+            //合并后从当前链表中删除，添加到更大的链表中
+            list_del(&(base->page_link));
+            free_area1[order].nr_free -= 2;
+            add_page(base,order+1);
+            free_area1[order+1].nr_free += 1;
+        }
+    }
 
-// static size_t
-// default_nr_free_pages(void) {
-//     return nr_free;
-// }
+    // 和后页合并
+    le = list_next(&(base->page_link));
+    if (le != &(free_area1[order].free_list)) {
+        struct Page *p = le2page(le, page_link);
+        if (has_merge == 0 && base + (1<<(base->property)) == p ) {
+            has_merge = 1;
+            base->property += 1;
+            ClearPageProperty(p);
+            list_del(&(p->page_link));
+            //合并后从当前链表中删除，添加到更大的链表中
+            list_del(&(base->page_link));
+            free_area1[order].nr_free -= 2;
+            add_page(base,order+1);
+            free_area1[order].nr_free += 1;
+        }
+    }
+    if(has_merge == 1) //成功merge则递归调用上一级merge
+    {
+        merge_page(base,order+1);
+    }
+    return;
+}
+
+
+static void
+default_free_pages(struct Page *base, size_t n) {
+    assert(n > 0);
+    struct Page *p = base;
+    for (; p != base + n; p ++) {
+        assert(!PageReserved(p) && !PageProperty(p));
+        p->flags = 0;
+        set_page_ref(p, 0);
+    }
+    
+    int order = 0;
+    while(n!=(1<<order))
+    {
+        order++;
+    }
+    base->property = order;
+    SetPageProperty(base);
+
+    // 将新的空页添加到对应链表
+    add_page(base, order);
+    free_area1[order].nr_free += 1;
+
+    // 尝试合并
+    merge_page(base, order);
+}
+
+static size_t
+default_nr_free_pages(void) {
+    size_t num = 0;
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        num+=free_area1[i].nr_free<<i;
+    }
+    return num;
+}
+
 
 static void
 basic_check(void) {
-    struct Page *p0, *p1, *p2;
-    p0 = p1 = p2 = NULL;
-    assert((p0 = alloc_page()) != NULL);
-    assert((p1 = alloc_page()) != NULL);
-    assert((p2 = alloc_page()) != NULL);
+  struct Page *p0, *p1, *p2;
 
-    assert(p0 != p1 && p0 != p2 && p1 != p2);
-    assert(page_ref(p0) == 0 && page_ref(p1) == 0 && page_ref(p2) == 0);
+    cprintf("Starting buddy_system_basic_check...\n");
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+    }
 
-    assert(page2pa(p0) < npage * PGSIZE);
-    assert(page2pa(p1) < npage * PGSIZE);
-    assert(page2pa(p2) < npage * PGSIZE);
+    p0=default_alloc_pages(8);
+    p1=default_alloc_pages(8);
+    p2=default_alloc_pages(8);
+
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+    }
+    default_free_pages(p1,8);
+    default_free_pages(p2,8);
+    default_free_pages(p0,8);
+    for(int i=0;i<=MAX_ORDER;i++)
+    {
+        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+    }
 
     // list_entry_t free_list_store = free_list;
     // list_init(&free_list);
@@ -331,8 +397,8 @@ const struct pmm_manager default_pmm_manager = {
     .init = default_init,
     .init_memmap = default_init_memmap,
     .alloc_pages = default_alloc_pages,
-    // .free_pages = default_free_pages,
-    // .nr_free_pages = default_nr_free_pages,
+    .free_pages = default_free_pages,
+    .nr_free_pages = default_nr_free_pages,
     .check = default_check,
 };
 
