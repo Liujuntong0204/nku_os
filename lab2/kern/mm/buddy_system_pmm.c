@@ -293,23 +293,23 @@ static void basic_check(void) {
     cprintf("Starting buddy_system_basic_check...\n");
     for(int i=0;i<=MAX_ORDER;i++)
     {
-        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+        cprintf(" 第 %d 阶有 %d 个空闲块 \n",i,free_area1[i].nr_free);
     }
 
-    p0=buddy_system_alloc_pages(8);
+    p0=buddy_system_alloc_pages(7);
     p1=buddy_system_alloc_pages(8);
     p2=buddy_system_alloc_pages(8);
 
     for(int i=0;i<=MAX_ORDER;i++)
     {
-        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+        cprintf(" 第 %d 阶有 %d 个空闲块 \n",i,free_area1[i].nr_free);
     }
     buddy_system_free_pages(p1,8);
     buddy_system_free_pages(p2,8);
     buddy_system_free_pages(p0,8);
     for(int i=0;i<=MAX_ORDER;i++)
     {
-        cprintf(" di %d jie you %d ge \n",i,free_area1[i].nr_free);
+        cprintf(" 第 %d 阶有 %d 个空闲块 \n",i,free_area1[i].nr_free);
     }
 
 }

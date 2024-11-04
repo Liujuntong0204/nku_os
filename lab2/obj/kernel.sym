@@ -39,7 +39,7 @@ ffffffffc0200e0c buddy_system_init_memmap
 0000000000000000 pmm.c
 0000000000000000 printfmt.c
 ffffffffc0201076 printnum
-ffffffffc02022e8 error_string
+ffffffffc02022f8 error_string
 0000000000000000 readline.c
 ffffffffc0206178 buf
 0000000000000000 sbi.c
@@ -88,7 +88,7 @@ ffffffffc02065a8 satp_virtual
 ffffffffc0201444 printfmt
 ffffffffc0200738 trap
 ffffffffc0201584 strcmp
-ffffffffc0201f78 buddy_system_pmm_manager
+ffffffffc0201f88 buddy_system_pmm_manager
 ffffffffc02006a2 interrupt_handler
 ffffffffc0201518 sbi_console_putchar
 ffffffffc0200ee2 pmm_init
