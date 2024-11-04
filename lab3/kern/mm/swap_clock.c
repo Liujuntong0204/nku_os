@@ -41,7 +41,7 @@ _clock_init_mm(struct mm_struct *mm)
      list_init(&pra_list_head1);
      curr_ptr=&pra_list_head1;
      mm->sm_priv = &pra_list_head1;
-     cprintf(" mm->sm_priv %x in fifo_init_mm\n",mm->sm_priv);
+     cprintf(" mm->sm_priv %x in f_mm\n",mm->sm_priv);
      return 0;
 }
 /*
@@ -71,6 +71,8 @@ static int
 _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
      list_entry_t *head=(list_entry_t*) mm->sm_priv;
+      cprintf("curr_ptr %p\n",curr_ptr);
+        cprintf("head %p\n",head);
          assert(head != NULL);
      assert(in_tick==0);
      /* Select the victim */
@@ -83,14 +85,23 @@ _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tic
         // 获取当前页面对应的Page结构指针
         // 如果当前页面未被访问，则将该页面从页面链表中删除，并将该页面指针赋值给ptr_page作为换出页面
         // 如果当前页面已被访问，则将visited标志置为0，表示该页面已被重新访问
-       struct Page* curr_page = le2page(curr_ptr,pra_page_link);
-       if(curr_page->visited==0)
-       {
-          list_del(curr_ptr);
-        *ptr_page =curr_page;
-       }
-       curr_page->visited=0;
-       curr_ptr=list_prev(curr_ptr);
+        curr_ptr = list_next(curr_ptr);
+        if (curr_ptr == head) {
+            curr_ptr = list_next(head);
+            if (curr_ptr == head) {
+                *ptr_page = NULL;
+                return 0;
+            }
+        }
+        struct Page* curr_page = le2page(curr_ptr, pra_page_link);
+        if(curr_page->visited==0) {
+            *ptr_page = curr_page;
+            cprintf("curr_ptr %p\n",curr_ptr);
+            list_del(curr_ptr);
+            break;
+        } else {
+            curr_page->visited = 0;
+        }
     }
     return 0;
 }

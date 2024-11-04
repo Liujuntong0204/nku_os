@@ -407,7 +407,7 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
             //logical addr
             //(3) make the page swappable.
             swap_in(mm,addr,&page);
-            page_insert(ptep,page,addr,perm);
+            page_insert(mm->pgdir,page,addr,perm);
             swap_map_swappable(mm,addr,page,0);
             page->pra_vaddr = addr;
         } else {
