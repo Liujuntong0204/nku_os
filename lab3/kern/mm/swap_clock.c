@@ -41,6 +41,7 @@ _clock_init_mm(struct mm_struct *mm)
      list_init(&pra_list_headc);
      curr_ptr = &pra_list_headc;
      mm->sm_priv = &pra_list_headc;
+     cprintf(" mm->sm_priv %x in f_mm\n",mm->sm_priv);
      return 0;
 }
 /*
@@ -70,6 +71,8 @@ static int
 _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
      list_entry_t *head=(list_entry_t*) mm->sm_priv;
+     cprintf("curr_ptr %p\n",curr_ptr);
+        cprintf("head %p\n",head);
          assert(head != NULL);
      assert(in_tick==0);
      /* Select the victim */
@@ -85,11 +88,11 @@ _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tic
         curr_ptr = list_next(curr_ptr);
         if(curr_ptr == head)
         {
-            curr_ptr = list_next(curr_ptr);
+            curr_ptr = list_next(head);
             if(curr_ptr == head)
             {
                 *ptr_page = NULL;
-                break;
+                return 0;
             }
             
         }
@@ -97,6 +100,7 @@ _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tic
         if(page->visited == 0)
         {
             *ptr_page = page;
+            cprintf("curr_ptr %p\n",curr_ptr);
             list_del(curr_ptr);
             break;
         }
