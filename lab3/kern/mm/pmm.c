@@ -216,7 +216,7 @@ void pmm_init(void) {
 //  la:     the linear address need to map
 //  create: a logical value to decide if alloc a page for PT
 // return vaule: the kernel virtual address of this pte
-pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
+pte_t *     (pde_t *pgdir, uintptr_t la, bool create) {
     /*
      *
      * If you need to visit a physical address, please use KADDR()
