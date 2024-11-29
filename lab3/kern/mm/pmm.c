@@ -53,7 +53,7 @@ struct Page *alloc_pages(size_t n) {
     bool intr_flag;
 
     while (1) {
-        local_intr_save(intr_flag);
+        local_intr_save(intr_flag); // 保存当前的中断状态并禁用中断
         { page = pmm_manager->alloc_pages(n); }
         local_intr_restore(intr_flag);
 
@@ -244,10 +244,10 @@ pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
      *   PTE_U           0x004                   // page table/directory entry
      * flags bit : User can access
      */
-    pde_t *pdep1 = &pgdir[PDX1(la)];
-    if (!(*pdep1 & PTE_V)) {
+    pde_t *pdep1 = &pgdir[PDX1(la)]; //找大大页
+    if (!(*pdep1 & PTE_V)) {  // 如果页表项无效
         struct Page *page;
-        if (!create || (page = alloc_page()) == NULL) {
+        if (!create || (page = alloc_page()) == NULL) { // 创建新的大大页
             return NULL;
         }
         set_page_ref(page, 1);
@@ -255,11 +255,11 @@ pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
         memset(KADDR(pa), 0, PGSIZE);
         *pdep1 = pte_create(page2ppn(page), PTE_U | PTE_V);
     }
-    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)];
+    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)]; // 找大页
 //    pde_t *pdep0 = &((pde_t *)(PDE_ADDR(*pdep1)))[PDX0(la)];
-    if (!(*pdep0 & PTE_V)) {
+    if (!(*pdep0 & PTE_V)) { // 如果页表项无效
     	struct Page *page;
-    	if (!create || (page = alloc_page()) == NULL) {
+    	if (!create || (page = alloc_page()) == NULL) { // 创建新的大页
     		return NULL;
     	}
     	set_page_ref(page, 1);
@@ -268,11 +268,11 @@ pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
  //   	memset(pa, 0, PGSIZE);
     	*pdep0 = pte_create(page2ppn(page), PTE_U | PTE_V);
     }
-    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];
+    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];     
 }
 
 // get_page - get related Page struct for linear address la using PDT pgdir
-struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
+struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) { // 获取页
     pte_t *ptep = get_pte(pgdir, la, 0);
     if (ptep_store != NULL) {
         *ptep_store = ptep;

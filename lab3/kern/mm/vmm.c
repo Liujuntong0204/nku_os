@@ -346,11 +346,11 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
      * THEN
      *    continue process
      */
-    uint32_t perm = PTE_U;
-    if (vma->vm_flags & VM_WRITE) {
-        perm |= (PTE_R | PTE_W);
+    uint32_t perm = PTE_U; // 用户态
+    if (vma->vm_flags & VM_WRITE) {  // 如果这个页面是可写的
+        perm |= (PTE_R | PTE_W);  // 状态为可读可写
     }
-    addr = ROUNDDOWN(addr, PGSIZE);
+    addr = ROUNDDOWN(addr, PGSIZE); // 向下取整到页大小的倍数，指向页起始地址
 
     ret = -E_NO_MEM;
 
@@ -377,12 +377,12 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
     ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
                                          //PT(Page Table) isn't existed, then
                                          //create a PT.
-    if (*ptep == 0) {
+    if (*ptep == 0) {  // 没有这个虚拟地址对应的表项
         if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
             cprintf("pgdir_alloc_page in do_pgfault failed\n");
             goto failed;
         }
-    } else {
+    } else { // 有对应的表项
         /*LAB3 EXERCISE 3: YOUR CODE
         * 请你根据以下信息提示，补充函数
         * 现在我们认为pte是一个交换条目，那我们应该从磁盘加载数据并放到带有phy addr的页面，
@@ -407,7 +407,7 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
             //logical addr
             //(3) make the page swappable.
             swap_in(mm,addr,&page);
-            page_insert(mm->pgdir,page,addr,perm);
+            page_insert(mm->pgdir,page,addr,perm); // 会先将原来的表项删除，再添加新的映射
             swap_map_swappable(mm,addr,page,1);
             page->pra_vaddr = addr;
         } else {

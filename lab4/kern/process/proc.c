@@ -102,7 +102,18 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
-
+    proc->state=PROC_UNINIT;
+    proc->pid=-1;
+    proc->runs=0;
+    proc->kstack=0;
+    proc->need_resched =0;
+    proc->parent=NULL;
+    proc->mm=NULL;
+    memset(&proc->context, 0, sizeof(struct context));
+    proc->tf=NULL;
+    proc->cr3=boot_cr3;
+    proc->flags=0;
+    memset(proc->name, 0, PROC_NAME_LEN + 1);
 
     }
     return proc;
@@ -163,7 +174,7 @@ get_pid(void) {
 void
 proc_run(struct proc_struct *proc) {
     if (proc != current) {
-        // LAB4:EXERCISE3 YOUR CODE
+        // LAB4:EXERCISE3 YOUR CODE 2212410
         /*
         * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.
         * MACROs or Functions:
@@ -172,7 +183,16 @@ proc_run(struct proc_struct *proc) {
         *   lcr3():                   Modify the value of CR3 register
         *   switch_to():              Context switching between two processes
         */
-       
+       bool intr_flag;
+       struct proc_struct *prev = current;
+       struct proc_struct *next = proc;
+       local_intr_save(intr_flag); // 禁用中断
+       {
+            current=proc; // 更新当前线程为proc
+            lcr3(next->cr3); // 更换页表
+            switch_to(&(prev->context),&(next->context)); // 上下文切换
+       }
+       local_intr_restore(intr_flag); // 开启中断
     }
 }
 

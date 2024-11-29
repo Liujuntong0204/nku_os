@@ -2772,7 +2772,7 @@ ffffffffc02015d2:	84aa                	mv	s1,a0
 ffffffffc02015d4:	00010917          	auipc	s2,0x10
 ffffffffc02015d8:	f5c90913          	addi	s2,s2,-164 # ffffffffc0211530 <pmm_manager>
     while (1) {
-        local_intr_save(intr_flag);
+        local_intr_save(intr_flag); // 保存当前的中断状态并禁用中断
         { page = pmm_manager->alloc_pages(n); }
         local_intr_restore(intr_flag);
 
@@ -2925,18 +2925,18 @@ ffffffffc02016cc <get_pte>:
      *   PTE_U           0x004                   // page table/directory entry
      * flags bit : User can access
      */
-    pde_t *pdep1 = &pgdir[PDX1(la)];
+    pde_t *pdep1 = &pgdir[PDX1(la)]; //找大大页
 ffffffffc02016cc:	01e5d793          	srli	a5,a1,0x1e
 ffffffffc02016d0:	1ff7f793          	andi	a5,a5,511
 pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 ffffffffc02016d4:	715d                	addi	sp,sp,-80
-    pde_t *pdep1 = &pgdir[PDX1(la)];
+    pde_t *pdep1 = &pgdir[PDX1(la)]; //找大大页
 ffffffffc02016d6:	078e                	slli	a5,a5,0x3
 pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 ffffffffc02016d8:	fc26                	sd	s1,56(sp)
-    pde_t *pdep1 = &pgdir[PDX1(la)];
+    pde_t *pdep1 = &pgdir[PDX1(la)]; //找大大页
 ffffffffc02016da:	00f504b3          	add	s1,a0,a5
-    if (!(*pdep1 & PTE_V)) {
+    if (!(*pdep1 & PTE_V)) {  // 如果页表项无效
 ffffffffc02016de:	6094                	ld	a3,0(s1)
 pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 ffffffffc02016e0:	f84a                	sd	s2,48(sp)
@@ -2947,17 +2947,17 @@ ffffffffc02016e8:	e0a2                	sd	s0,64(sp)
 ffffffffc02016ea:	ec56                	sd	s5,24(sp)
 ffffffffc02016ec:	e85a                	sd	s6,16(sp)
 ffffffffc02016ee:	e45e                	sd	s7,8(sp)
-    if (!(*pdep1 & PTE_V)) {
+    if (!(*pdep1 & PTE_V)) {  // 如果页表项无效
 ffffffffc02016f0:	0016f793          	andi	a5,a3,1
 pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
 ffffffffc02016f4:	892e                	mv	s2,a1
 ffffffffc02016f6:	8a32                	mv	s4,a2
 ffffffffc02016f8:	00010997          	auipc	s3,0x10
 ffffffffc02016fc:	e2898993          	addi	s3,s3,-472 # ffffffffc0211520 <npage>
-    if (!(*pdep1 & PTE_V)) {
+    if (!(*pdep1 & PTE_V)) {  // 如果页表项无效
 ffffffffc0201700:	efb5                	bnez	a5,ffffffffc020177c <get_pte+0xb0>
         struct Page *page;
-        if (!create || (page = alloc_page()) == NULL) {
+        if (!create || (page = alloc_page()) == NULL) { // 创建新的大大页
 ffffffffc0201702:	14060c63          	beqz	a2,ffffffffc020185a <get_pte+0x18e>
 ffffffffc0201706:	4505                	li	a0,1
 ffffffffc0201708:	eb9ff0ef          	jal	ra,ffffffffc02015c0 <alloc_pages>
@@ -3014,7 +3014,7 @@ ffffffffc0201776:	0116e693          	ori	a3,a3,17
         *pdep1 = pte_create(page2ppn(page), PTE_U | PTE_V);
 ffffffffc020177a:	e094                	sd	a3,0(s1)
     }
-    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)];
+    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)]; // 找大页
 ffffffffc020177c:	77fd                	lui	a5,0xfffff
 ffffffffc020177e:	068a                	slli	a3,a3,0x2
 ffffffffc0201780:	0009b703          	ld	a4,0(s3)
@@ -3030,12 +3030,12 @@ ffffffffc02017a2:	96a2                	add	a3,a3,s0
 ffffffffc02017a4:	00379413          	slli	s0,a5,0x3
 ffffffffc02017a8:	9436                	add	s0,s0,a3
 //    pde_t *pdep0 = &((pde_t *)(PDE_ADDR(*pdep1)))[PDX0(la)];
-    if (!(*pdep0 & PTE_V)) {
+    if (!(*pdep0 & PTE_V)) { // 如果页表项无效
 ffffffffc02017aa:	6014                	ld	a3,0(s0)
 ffffffffc02017ac:	0016f793          	andi	a5,a3,1
 ffffffffc02017b0:	ebad                	bnez	a5,ffffffffc0201822 <get_pte+0x156>
     	struct Page *page;
-    	if (!create || (page = alloc_page()) == NULL) {
+    	if (!create || (page = alloc_page()) == NULL) { // 创建新的大页
 ffffffffc02017b2:	0a0a0463          	beqz	s4,ffffffffc020185a <get_pte+0x18e>
 ffffffffc02017b6:	4505                	li	a0,1
 ffffffffc02017b8:	e09ff0ef          	jal	ra,ffffffffc02015c0 <alloc_pages>
@@ -3085,7 +3085,7 @@ ffffffffc0201818:	0116e693          	ori	a3,a3,17
     	*pdep0 = pte_create(page2ppn(page), PTE_U | PTE_V);
 ffffffffc020181c:	e014                	sd	a3,0(s0)
     }
-    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];
+    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];     
 ffffffffc020181e:	0009b703          	ld	a4,0(s3)
 ffffffffc0201822:	068a                	slli	a3,a3,0x2
 ffffffffc0201824:	757d                	lui	a0,0xfffff
@@ -3113,14 +3113,14 @@ ffffffffc0201858:	8082                	ret
             return NULL;
 ffffffffc020185a:	4501                	li	a0,0
 ffffffffc020185c:	b7e5                	j	ffffffffc0201844 <get_pte+0x178>
-    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)];
+    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)]; // 找大页
 ffffffffc020185e:	00004617          	auipc	a2,0x4
 ffffffffc0201862:	99260613          	addi	a2,a2,-1646 # ffffffffc02051f0 <default_pmm_manager+0x90>
 ffffffffc0201866:	10200593          	li	a1,258
 ffffffffc020186a:	00004517          	auipc	a0,0x4
 ffffffffc020186e:	9ae50513          	addi	a0,a0,-1618 # ffffffffc0205218 <default_pmm_manager+0xb8>
 ffffffffc0201872:	b03fe0ef          	jal	ra,ffffffffc0200374 <__panic>
-    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];
+    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];     
 ffffffffc0201876:	00004617          	auipc	a2,0x4
 ffffffffc020187a:	97a60613          	addi	a2,a2,-1670 # ffffffffc02051f0 <default_pmm_manager+0x90>
 ffffffffc020187e:	10f00593          	li	a1,271
@@ -3147,13 +3147,13 @@ ffffffffc02018be:	ab7fe0ef          	jal	ra,ffffffffc0200374 <__panic>
 ffffffffc02018c2 <get_page>:
 
 // get_page - get related Page struct for linear address la using PDT pgdir
-struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
+struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) { // 获取页
 ffffffffc02018c2:	1141                	addi	sp,sp,-16
 ffffffffc02018c4:	e022                	sd	s0,0(sp)
 ffffffffc02018c6:	8432                	mv	s0,a2
     pte_t *ptep = get_pte(pgdir, la, 0);
 ffffffffc02018c8:	4601                	li	a2,0
-struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) {
+struct Page *get_page(pde_t *pgdir, uintptr_t la, pte_t **ptep_store) { // 获取页
 ffffffffc02018ca:	e406                	sd	ra,8(sp)
     pte_t *ptep = get_pte(pgdir, la, 0);
 ffffffffc02018cc:	e01ff0ef          	jal	ra,ffffffffc02016cc <get_pte>
@@ -7187,17 +7187,17 @@ ffffffffc0203cc4:	08f46163          	bltu	s0,a5,ffffffffc0203d46 <do_pgfault+0xa
      * THEN
      *    continue process
      */
-    uint32_t perm = PTE_U;
-    if (vma->vm_flags & VM_WRITE) {
+    uint32_t perm = PTE_U; // 用户态
+    if (vma->vm_flags & VM_WRITE) {  // 如果这个页面是可写的
 ffffffffc0203cc8:	6d1c                	ld	a5,24(a0)
-    uint32_t perm = PTE_U;
+    uint32_t perm = PTE_U; // 用户态
 ffffffffc0203cca:	4941                	li	s2,16
-    if (vma->vm_flags & VM_WRITE) {
+    if (vma->vm_flags & VM_WRITE) {  // 如果这个页面是可写的
 ffffffffc0203ccc:	8b89                	andi	a5,a5,2
 ffffffffc0203cce:	ebb1                	bnez	a5,ffffffffc0203d22 <do_pgfault+0x88>
-        perm |= (PTE_R | PTE_W);
+        perm |= (PTE_R | PTE_W);  // 状态为可读可写
     }
-    addr = ROUNDDOWN(addr, PGSIZE);
+    addr = ROUNDDOWN(addr, PGSIZE); // 向下取整到页大小的倍数，指向页起始地址
 ffffffffc0203cd0:	75fd                	lui	a1,0xfffff
     *   mm->pgdir : the PDT of these vma
     *
@@ -7206,7 +7206,7 @@ ffffffffc0203cd0:	75fd                	lui	a1,0xfffff
 
     ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
 ffffffffc0203cd2:	6c88                	ld	a0,24(s1)
-    addr = ROUNDDOWN(addr, PGSIZE);
+    addr = ROUNDDOWN(addr, PGSIZE); // 向下取整到页大小的倍数，指向页起始地址
 ffffffffc0203cd4:	8c6d                	and	s0,s0,a1
     ptep = get_pte(mm->pgdir, addr, 1);  //(1) try to find a pte, if pte's
 ffffffffc0203cd6:	85a2                	mv	a1,s0
@@ -7214,7 +7214,7 @@ ffffffffc0203cd8:	4605                	li	a2,1
 ffffffffc0203cda:	9f3fd0ef          	jal	ra,ffffffffc02016cc <get_pte>
                                          //PT(Page Table) isn't existed, then
                                          //create a PT.
-    if (*ptep == 0) {
+    if (*ptep == 0) {  // 没有这个虚拟地址对应的表项
 ffffffffc0203cde:	610c                	ld	a1,0(a0)
 ffffffffc0203ce0:	c1b9                	beqz	a1,ffffffffc0203d26 <do_pgfault+0x8c>
         *    swap_in(mm, addr, &page) : 分配一个内存页，然后根据
@@ -7239,7 +7239,7 @@ ffffffffc0203cf0:	8526                	mv	a0,s1
 ffffffffc0203cf2:	e402                	sd	zero,8(sp)
             swap_in(mm,addr,&page);
 ffffffffc0203cf4:	bbcff0ef          	jal	ra,ffffffffc02030b0 <swap_in>
-            page_insert(mm->pgdir,page,addr,perm);
+            page_insert(mm->pgdir,page,addr,perm); // 会先将原来的表项删除，再添加新的映射
 ffffffffc0203cf8:	65a2                	ld	a1,8(sp)
 ffffffffc0203cfa:	6c88                	ld	a0,24(s1)
 ffffffffc0203cfc:	86ca                	mv	a3,s2
@@ -7271,7 +7271,7 @@ ffffffffc0203d1a:	64e2                	ld	s1,24(sp)
 ffffffffc0203d1c:	6942                	ld	s2,16(sp)
 ffffffffc0203d1e:	6145                	addi	sp,sp,48
 ffffffffc0203d20:	8082                	ret
-        perm |= (PTE_R | PTE_W);
+        perm |= (PTE_R | PTE_W);  // 状态为可读可写
 ffffffffc0203d22:	4959                	li	s2,22
 ffffffffc0203d24:	b775                	j	ffffffffc0203cd0 <do_pgfault+0x36>
         if (pgdir_alloc_page(mm->pgdir, addr, perm) == NULL) {
