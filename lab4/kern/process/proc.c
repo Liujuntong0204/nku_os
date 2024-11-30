@@ -102,18 +102,18 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
-    proc->state=PROC_UNINIT;
-    proc->pid=-1;
-    proc->runs=0;
-    proc->kstack=0;
-    proc->need_resched =0;
-    proc->parent=NULL;
-    proc->mm=NULL;
-    memset(&proc->context, 0, sizeof(struct context));
-    proc->tf=NULL;
-    proc->cr3=boot_cr3;
-    proc->flags=0;
-    memset(proc->name, 0, PROC_NAME_LEN + 1);
+     proc->state = PROC_UNINIT; // 线程状态设置为未初始化
+        proc->pid = -1;            // 进程ID设置为-1，表示尚未正式分配
+        proc->runs = 0;            // 进程运行次数初始设为0
+        proc->kstack = 0;          // 内核栈指针初始化为0
+        proc->need_resched = 0;    // 不需要调度
+        proc->parent = NULL;       // 父进程指针设为空
+        proc->mm = NULL;           // 内存管理信息指针设为空
+        memset(&proc->context, 0, sizeof(struct context)); // 初始化上下文
+        proc->tf = NULL;           // 中断帧指针为空
+        proc->cr3 = boot_cr3;      // CR3寄存器值设为启动时的页目录基址
+        proc->flags = 0;           // 初始化标志位为0
+        memset(proc->name, 0, PROC_NAME_LEN + 1); // 清空进程名称字符串
 
     }
     return proc;
