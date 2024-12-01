@@ -381,6 +381,9 @@ do_pgfault(struct mm_struct *mm, uint32_t error_code, uintptr_t addr) {
             //map of phy addr <--->
             //logical addr
             //(3) make the page swappable.
+            swap_in(mm,addr,&page);
+            page_insert(mm->pgdir,page,addr,perm); // 会先将原来的表项删除，再添加新的映射
+            swap_map_swappable(mm,addr,page,1);
             page->pra_vaddr = addr;
         } else {
             cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);
