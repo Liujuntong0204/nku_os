@@ -251,5 +251,69 @@ proc_run(struct proc_struct *proc) {
 在本实验中，创建并运行了两个内核线程：
 
 1. **idleproc**：第一个内核进程，负责完成内核中各个子系统的初始化。初始化完成后，它进入调度状态，等待执行其他进程。
+
 2. **initproc**：第二个内核进程，被调度执行，承担实验功能的执行任务。
+
+   
+
+### 扩展练习 Challenge：
+
+**说明语句`local_intr_save(intr_flag);....local_intr_restore(intr_flag);`是如何实现开关中断的？**
+
+相关代码如下：
+
+```c++
+// kern/sync/sync.h
+#define local_intr_save(x)      do { x = __intr_save(); } while (0)
+#define local_intr_restore(x)   __intr_restore(x);
+
+static inline bool __intr_save(void) {
+    if (read_csr(sstatus) & SSTATUS_SIE) {
+        intr_disable();
+        return 1;
+    }
+    return 0;
+}
+
+static inline void __intr_restore(bool flag) {
+    if (flag) {
+        intr_enable();
+    }
+}
+
+
+// kern/driver/intr.c
+/* intr_enable - enable irq interrupt */
+void intr_enable(void) { set_csr(sstatus, SSTATUS_SIE); }
+
+/* intr_disable - disable irq interrupt */
+void intr_disable(void) { clear_csr(sstatus, SSTATUS_SIE); }
+
+
+// libs/riscv.h
+#define read_csr(reg) ({ unsigned long __tmp; \
+  asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
+  __tmp; })
+#define set_csr(reg, bit) ({ unsigned long __tmp; \
+  asm volatile ("csrrs %0, " #reg ", %1" : "=r"(__tmp) : "rK"(bit)); \
+  __tmp; })
+#define clear_csr(reg, bit) ({ unsigned long __tmp; \
+  asm volatile ("csrrc %0, " #reg ", %1" : "=r"(__tmp) : "rK"(bit)); \
+  __tmp; })
+
+```
+
+（1）`local_intr_save(x)`会调用`__intr_save`：
+
+读取`sstatus`寄存器，判断`SIE`位，
+
++ 如果该位为1，表示当前可以中断，则调用 `intr_disable`，将该位置为0，禁用中断，返回1，将参数x赋值为1；
++ 如果该位为0，表示当前已禁用中断，返回0，将参数x赋值为0；
+
+（2）`local_intr_restore(x)`会调用`__intr_restore`：
+
+该函数会判断参数x的值：
+
++ 如果该值为1，说明是由启用中断改为了禁用中断，需要调用`intr_enable`，将sstatus的SIE位置为1，启用中断；
++ 如果该值为0，说明原本就是禁用中断状态，不需要操作。
 
