@@ -87,7 +87,7 @@ static struct proc_struct *
 alloc_proc(void) {
     struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
     if (proc != NULL) {
-    //LAB4:EXERCISE1 YOUR CODE
+    //LAB4:EXERCISE1 2212422
     /*
      * below fields in proc_struct need to be initialized
      *       enum proc_state state;                      // Process state
@@ -110,6 +110,22 @@ alloc_proc(void) {
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
      */
+      proc->state = PROC_UNINIT; // 线程状态设置为未初始化
+        proc->pid = -1;            // 进程ID设置为-1，表示尚未正式分配
+        proc->runs = 0;            // 进程运行次数初始设为0
+        proc->kstack = 0;          // 内核栈指针初始化为0
+        proc->need_resched = 0;    // 不需要调度
+        proc->parent = NULL;       // 父进程指针设为空
+        proc->mm = NULL;           // 内存管理信息指针设为空
+        memset(&proc->context, 0, sizeof(struct context)); // 初始化上下文
+        proc->tf = NULL;           // 中断帧指针为空
+        proc->cr3 = boot_cr3;      // CR3寄存器值设为启动时的页目录基址
+        proc->flags = 0;           // 初始化标志位为0
+        memset(proc->name, 0, PROC_NAME_LEN + 1); // 清空进程名称字符串
+        proc->wait_state = 0;
+        proc->cptr = NULL; // Child Pointer 表示当前进程的子进程
+        proc->optr = NULL; // Older Sibling Pointer 表示当前进程的上一个兄弟进程
+        proc->yptr = NULL; // Younger Sibling Pointer 表示当前进程的下一个兄弟进程
     }
     return proc;
 }
@@ -197,7 +213,7 @@ get_pid(void) {
 void
 proc_run(struct proc_struct *proc) {
     if (proc != current) {
-        // LAB4:EXERCISE3 YOUR CODE
+        // LAB4:EXERCISE3 2212422
         /*
         * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.
         * MACROs or Functions:
@@ -206,7 +222,16 @@ proc_run(struct proc_struct *proc) {
         *   lcr3():                   Modify the value of CR3 register
         *   switch_to():              Context switching between two processes
         */
-
+       bool intr_flag;
+       struct proc_struct *prev = current;
+       struct proc_struct *next = proc;
+       local_intr_save(intr_flag); // 禁用中断
+       {
+            current=proc; // 更新当前线程为proc
+            lcr3(next->cr3); // 更换页表
+            switch_to(&(prev->context),&(next->context)); // 上下文切换
+       }
+       local_intr_restore(intr_flag); // 开启中断
     }
 }
 
@@ -404,6 +429,35 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     *    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
  
+if((proc = alloc_proc())==NULL)
+    {
+        goto fork_out;
+    }
+    proc->parent=current;
+    assert(proc->wait_state==0);
+    if(setup_kstack(proc))
+    {
+        goto bad_fork_cleanup_kstack;
+    }
+    if(copy_mm(clone_flags,proc))
+    {
+        goto bad_fork_cleanup_proc;
+    }
+    copy_thread(proc,stack,tf);
+   bool intr_flag;
+   local_intr_save(intr_flag);
+    {
+        proc->pid=get_pid();
+        hash_proc(proc);
+        list_add(&proc_list,&(proc->list_link));
+        nr_process++;
+        set_links(proc);
+    }
+   local_intr_restore(intr_flag);
+
+    wakeup_proc(proc);
+    ret = proc->pid;
+
 fork_out:
     return ret;
 
@@ -595,7 +649,7 @@ load_icode(unsigned char *binary, size_t size) {
     // Keep sstatus
     uintptr_t sstatus = tf->status;
     memset(tf, 0, sizeof(struct trapframe));
-    /* LAB5:EXERCISE1 YOUR CODE
+    /* LAB5:EXERCISE1 2212422
      * should set tf->gpr.sp, tf->epc, tf->status
      * NOTICE: If we set trapframe correctly, then the user level process can return to USER MODE from kernel. So
      *          tf->gpr.sp should be user stack top (the value of sp)
@@ -603,8 +657,9 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf->status should be appropriate for user program (the value of sstatus)
      *          hint: check meaning of SPP, SPIE in SSTATUS, use them by SSTATUS_SPP, SSTATUS_SPIE(defined in risv.h)
      */
-
-
+    tf->gpr.sp=USTACKTOP;
+    tf->epc = elf->e_entry;
+    tf->status=sstatus = (sstatus & ~SSTATUS_SPIE) | SSTATUS_SPIE;
     ret = 0;
 out:
     return ret;
@@ -743,24 +798,36 @@ do_kill(int pid) {
     return -E_INVAL;
 }
 
-// kernel_execve - do SYS_exec syscall to exec a user program called by user_main kernel_thread
+// kernel_execve - 执行SYS_exec系统调用来加载并执行一个用户程序
+// 该函数由user_main内核线程调用，以启动用户程序。
 static int
 kernel_execve(const char *name, unsigned char *binary, size_t size) {
-    int64_t ret=0, len = strlen(name);
- //   ret = do_execve(name, len, binary, size);
+    int64_t ret = 0;  // 用于存储系统调用返回值的变量
+    int len = strlen(name);  // 获取程序名的长度
+//   ret = do_execve(name, len, binary, size);
+    // 使用内联汇编来执行系统调用SYS_exec
     asm volatile(
-        "li a0, %1\n"
-        "lw a1, %2\n"
-        "lw a2, %3\n"
-        "lw a3, %4\n"
-        "lw a4, %5\n"
-    	"li a7, 10\n"
-        "ebreak\n"
-        "sw a0, %0\n"
-        : "=m"(ret)
-        : "i"(SYS_exec), "m"(name), "m"(len), "m"(binary), "m"(size)
-        : "memory");
+        "li a0, %1\n"           // 将系统调用号SYS_exec加载到寄存器a0（注意：这里应该是a7）
+        "lw a1, %2\n"           // 加载程序名地址到寄存器a1（注意：应使用la指令加载地址）
+        "lw a2, %3\n"           // 加载程序名长度到寄存器a2（注意：应使用立即数或正确加载）
+        "lw a3, %4\n"           // 加载二进制数据地址到寄存器a3（注意：应使用la指令加载地址）
+        "lw a4, %5\n"           // 加载二进制数据大小到寄存器a4（注意：应使用立即数或正确加载）
+        "li a7, 10\n"           // 将系统调用号10 (SYS_exec) 加载到寄存器a7
+        "ebreak\n"              // 触发断点异常（通常用于调试；实际应用中应使用ecall）
+        "sw a0, %0\n"           // 将系统调用返回值从寄存器a0保存到ret变量
+        : "=m"(ret)             // 输出操作数：ret将接收返回值
+        : "i"(SYS_exec),        // 输入操作数：系统调用号SYS_exec
+          "m"(name),            // 输入操作数：程序名的地址
+          "m"(len),             // 输入操作数：程序名长度
+          "m"(binary),          // 输入操作数：二进制数据的地址
+          "m"(size)             // 输入操作数：二进制数据大小
+        : "memory"              // Clobber列表：告诉编译器哪些寄存器被修改了
+    );
+
+    // 打印系统调用返回值供调试使用
     cprintf("ret = %d\n", ret);
+
+    // 返回系统调用的结果
     return ret;
 }
 
@@ -788,34 +855,52 @@ kernel_execve(const char *name, unsigned char *binary, size_t size) {
 static int
 user_main(void *arg) {
 #ifdef TEST
+    // 如果定义了TEST宏，则执行特定的测试程序。
+    // 使用KERNEL_EXECVE2函数加载并执行指定地址和大小的用户程序。
     KERNEL_EXECVE2(TEST, TESTSTART, TESTSIZE);
 #else
+    // 如果没有定义TEST宏，则尝试执行名为"exit"的用户程序。
     KERNEL_EXECVE(exit);
 #endif
+    // 如果execve调用失败，则触发内核恐慌（panic），表示严重错误。
     panic("user_main execve failed.\n");
 }
 
 // init_main - the second kernel thread used to create user_main kernel threads
 static int
 init_main(void *arg) {
+    // 保存当前空闲页面的数量，用于后续内存检查。
     size_t nr_free_pages_store = nr_free_pages();
+    // 保存当前内核分配的字节数，用于后续内存检查。
     size_t kernel_allocated_store = kallocated();
 
+    // 创建一个名为user_main的内核线程，并传递NULL作为参数。
+    // 如果创建失败（返回值小于等于0），则触发内核恐慌。
     int pid = kernel_thread(user_main, NULL, 0);
     if (pid <= 0) {
         panic("create user_main failed.\n");
     }
 
+    // 等待子进程结束。do_wait返回0表示没有子进程退出。
+    // 在等待期间，调用schedule()让出CPU给其他可运行的线程。
     while (do_wait(0, NULL) == 0) {
         schedule();
     }
 
+    // 打印信息表明所有用户模式进程已退出。
     cprintf("all user-mode processes have quit.\n");
+
+    // 断言：确保initproc没有任何子进程、兄弟进程或父进程。
     assert(initproc->cptr == NULL && initproc->yptr == NULL && initproc->optr == NULL);
+
+    // 断言：确保系统中只有两个进程（initproc和idle）。
     assert(nr_process == 2);
+
+    // 断言：确保进程列表中只包含initproc本身。
     assert(list_next(&proc_list) == &(initproc->list_link));
     assert(list_prev(&proc_list) == &(initproc->list_link));
 
+    // 打印信息表明内存检查通过。
     cprintf("init check memory pass.\n");
     return 0;
 }
