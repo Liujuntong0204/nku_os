@@ -77,14 +77,14 @@ struct proc_struct *current = NULL;
 
 static int nr_process = 0;
 
-void kernel_thread_entry(void);
-void forkrets(struct trapframe *tf);
+void kernel_thread_entry(void); // 跳转s0
+void forkrets(struct trapframe *tf); // 汇编中，将栈设置为新进程的陷阱帧
 void switch_to(struct context *from, struct context *to);
 
 // alloc_proc - alloc a proc_struct and init all fields of proc_struct
 static struct proc_struct *
 alloc_proc(void) {
-    struct proc_struct *proc = kmalloc(sizeof(struct proc_struct));
+    struct proc_struct *proc = kmalloc(sizeof(struct proc_struct)); // 通过slob分配
     if (proc != NULL) {
     //LAB4:EXERCISE1 YOUR CODE
     /*
@@ -102,18 +102,18 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
-    proc->state=PROC_UNINIT;
-    proc->pid=-1;
-    proc->runs=0;
-    proc->kstack=0;
-    proc->need_resched =0;
-    proc->parent=NULL;
-    proc->mm=NULL;
-    memset(&(proc->context), 0, sizeof(struct context));
-    proc->tf=NULL;
-    proc->cr3=boot_cr3;
-    proc->flags=0;
-    memset(proc->name, 0, PROC_NAME_LEN + 1);
+    proc->state=PROC_UNINIT; // 未初始化状态
+    proc->pid=-1; // 进程id初始为-1
+    proc->runs=0; // 运行次数是0
+    proc->kstack=0; // 内核栈未分配
+    proc->need_resched =0;// 不需要被调度
+    proc->parent=NULL; // 无父进程
+    proc->mm=NULL; // 无内存管理器
+    memset(&(proc->context), 0, sizeof(struct context)); // 进程上下文初始化为0
+    proc->tf=NULL; // 中断帧
+    proc->cr3=boot_cr3; // 页目录表
+    proc->flags=0; // 进程标志位
+    memset(proc->name, 0, PROC_NAME_LEN + 1); // 进程名初始化为0
 
     }
     return proc;
@@ -229,14 +229,14 @@ find_proc(int pid) {
 // NOTE: the contents of temp trapframe tf will be copied to 
 //       proc->tf in do_fork-->copy_thread function
 int
-kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
-    struct trapframe tf;
-    memset(&tf, 0, sizeof(struct trapframe));
-    tf.gpr.s0 = (uintptr_t)fn;
-    tf.gpr.s1 = (uintptr_t)arg;
-    tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE;
-    tf.epc = (uintptr_t)kernel_thread_entry;
-    return do_fork(clone_flags | CLONE_VM, 0, &tf);
+kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) { // 创建init进程
+    struct trapframe tf; // 保存idle信息
+    memset(&tf, 0, sizeof(struct trapframe)); // 中断帧置0
+    tf.gpr.s0 = (uintptr_t)fn; // s0存函数指针 init_main函数
+    tf.gpr.s1 = (uintptr_t)arg; // s1存参数字符串
+    tf.status = (read_csr(sstatus) | SSTATUS_SPP | SSTATUS_SPIE) & ~SSTATUS_SIE; // 设置特权态/之前(进特权态前)的中断使能/当前禁用中断 用于退出特权态恢复
+    tf.epc = (uintptr_t)kernel_thread_entry; // 执行位置
+    return do_fork(clone_flags | CLONE_VM, 0, &tf);  //  do_fork实际创建线程 clone表示共享进程空间 0用户栈，这里0表示内核线程用内核栈 tf 中断帧用于恢复
 }
 
 // setup_kstack - alloc pages with size KSTACKPAGE as process kernel stack
@@ -270,14 +270,14 @@ copy_mm(uint32_t clone_flags, struct proc_struct *proc) {
 static void
 copy_thread(struct proc_struct *proc, uintptr_t esp, struct trapframe *tf) {
     proc->tf = (struct trapframe *)(proc->kstack + KSTACKSIZE - sizeof(struct trapframe));
-    *(proc->tf) = *tf;
+    *(proc->tf) = *tf; // 原中断帧信息放到新进程内核栈栈顶
 
     // Set a0 to 0 so a child process knows it's just forked
     proc->tf->gpr.a0 = 0;
-    proc->tf->gpr.sp = (esp == 0) ? (uintptr_t)proc->tf : esp;
+    proc->tf->gpr.sp = (esp == 0) ? (uintptr_t)proc->tf : esp; // 是0，栈顶 在中断帧位置的起始
 
-    proc->context.ra = (uintptr_t)forkret;
-    proc->context.sp = (uintptr_t)(proc->tf);
+    proc->context.ra = (uintptr_t)forkret; // 返回地址
+    proc->context.sp = (uintptr_t)(proc->tf); // 栈设为陷阱帧
 }
 
 /* do_fork -     parent process for a new child process
@@ -318,31 +318,31 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     //    5. insert proc_struct into hash_list && proc_list
     //    6. call wakeup_proc to make the new child process RUNNABLE
     //    7. set ret vaule using child proc's pid
-    if((proc = alloc_proc())==NULL)
+    if((proc = alloc_proc())==NULL) // 获取新的proc_struct
     {
         goto fork_out;
     }
-    proc->parent=current;
-    if(setup_kstack(proc))
+    proc->parent=current; // 继承关系
+    if(setup_kstack(proc)) // 分配内核栈
     {
         goto bad_fork_cleanup_kstack;
     }
-    if(copy_mm(clone_flags,proc))
+    if(copy_mm(clone_flags,proc)) // 复制内存管理器 这里啥也没干，因为是内核线程共享内存空间，公用内存管理器（没管理器NULL）
     {
         goto bad_fork_cleanup_proc;
     }
-    copy_thread(proc,stack,tf);
+    copy_thread(proc,stack,tf); //复制进程 栈以及中断帧
    bool intr_flag;
-   local_intr_save(intr_flag);
+   local_intr_save(intr_flag); // 禁用中断
     {
-        proc->pid=get_pid();
-        hash_proc(proc);
-        list_add(&proc_list,&(proc->list_link));
+        proc->pid=get_pid(); // 分配唯一id
+        hash_proc(proc); // 根据id加入hash列表
+        list_add(&proc_list,&(proc->list_link)); // 加入进程列表
         nr_process++;
     }
-   local_intr_restore(intr_flag);
+   local_intr_restore(intr_flag); // 启用中断
 
-    wakeup_proc(proc);
+    wakeup_proc(proc); // 置为运行态
     ret = proc->pid;
 
 fork_out:
@@ -379,12 +379,12 @@ void
 proc_init(void) {
     int i;
 
-    list_init(&proc_list);
-    for (i = 0; i < HASH_LIST_SIZE; i ++) {
+    list_init(&proc_list); // 初始化进程列表
+    for (i = 0; i < HASH_LIST_SIZE; i ++) { // 初始化哈希列表，用于快速查找进程
         list_init(hash_list + i);
     }
 
-    if ((idleproc = alloc_proc()) == NULL) {
+    if ((idleproc = alloc_proc()) == NULL) { // 分配第一个线程idle的proc_struct
         panic("cannot alloc idleproc.\n");
     }
 
@@ -406,14 +406,14 @@ proc_init(void) {
 
     }
     
-    idleproc->pid = 0;
-    idleproc->state = PROC_RUNNABLE;
-    idleproc->kstack = (uintptr_t)bootstack;
-    idleproc->need_resched = 1;
-    set_proc_name(idleproc, "idle");
+    idleproc->pid = 0; // idle进程id为0
+    idleproc->state = PROC_RUNNABLE; // 改为可运行状态
+    idleproc->kstack = (uintptr_t)bootstack; // 内核栈
+    idleproc->need_resched = 1; // 需要被调度
+    set_proc_name(idleproc, "idle"); // 进程名
     nr_process ++;
 
-    current = idleproc;
+    current = idleproc; // 当前线程为idle
 
     int pid = kernel_thread(init_main, "Hello world!!", 0);
     if (pid <= 0) {

@@ -41,26 +41,26 @@ extern list_entry_t proc_list;
 struct inode;
 
 struct proc_struct {
-    enum proc_state state;                      // Process state
-    int pid;                                    // Process ID
-    int runs;                                   // the running times of Proces
-    uintptr_t kstack;                           // Process kernel stack
-    volatile bool need_resched;                 // bool value: need to be rescheduled to release CPU?
-    struct proc_struct *parent;                 // the parent process
-    struct mm_struct *mm;                       // Process's memory management field
-    struct context context;                     // Switch here to run process
-    struct trapframe *tf;                       // Trap frame for current interrupt
-    uintptr_t cr3;                              // CR3 register: the base addr of Page Directroy Table(PDT)
-    uint32_t flags;                             // Process flag
-    char name[PROC_NAME_LEN + 1];               // Process name
-    list_entry_t list_link;                     // Process link list 
-    list_entry_t hash_link;                     // Process hash list
-    int exit_code;                              // exit code (be sent to parent proc)
-    uint32_t wait_state;                        // waiting state
-    struct proc_struct *cptr, *yptr, *optr;     // relations between processes
-    struct run_queue *rq;                       // running queue contains Process
-    list_entry_t run_link;                      // the entry linked in run queue
-    int time_slice;                             // time slice for occupying the CPU
+    enum proc_state state;                      // Process state 进程状态
+    int pid;                                    // Process ID 进程id
+    int runs;                                   // the running times of Proces 进程运行次数
+    uintptr_t kstack;                           // Process kernel stack 进程内核栈的基地址
+    volatile bool need_resched;                 // bool value: need to be rescheduled to release CPU? 进程需要被调度
+    struct proc_struct *parent;                 // the parent process 父进程指针
+    struct mm_struct *mm;                       // Process's memory management field 进程的内存管理器
+    struct context context;                     // Switch here to run process 进程上下文 保存进程状态 在切换出cpu时保存，切换回cpu时读取，继续运行
+    struct trapframe *tf;                       // Trap frame for current interrupt 中断帧，用于保存中断信息，以处理中断后继续执行
+    uintptr_t cr3;                              // CR3 register: the base addr of Page Directroy Table(PDT) 进程页目录表的基地址
+    uint32_t flags;                             // Process flag 进程标志位
+    char name[PROC_NAME_LEN + 1];               // Process name 进程名字
+    list_entry_t list_link;                     // Process link list 进程链表的连接项，用于将进程连接到进程列表中
+    list_entry_t hash_link;                     // Process hash list 进程的哈希表连接项，用于将进程连接到哈希表中，快速查找进程
+    int exit_code;                              // exit code (be sent to parent proc) 进程退出代码，用于终止时向父进程传递推出状态
+    uint32_t wait_state;                        // waiting state 等待状态 
+    struct proc_struct *cptr, *yptr, *optr;     // relations between processes 子进程/较新的兄弟进程/较老的兄弟进程
+    struct run_queue *rq;                       // running queue contains Process 运行队列指针，用于进程调度
+    list_entry_t run_link;                      // the entry linked in run queue 运行队列的连接项
+    int time_slice;                             // time slice for occupying the CPU 进程时间片，表示进程能连续占用CPU的时间长度
     skew_heap_entry_t lab6_run_pool;            // FOR LAB6 ONLY: the entry in the run pool
     uint32_t lab6_stride;                       // FOR LAB6 ONLY: the current stride of the process
     uint32_t lab6_priority;                     // FOR LAB6 ONLY: the priority of process, set by lab6_set_priority(uint32_t)

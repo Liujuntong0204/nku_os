@@ -23,10 +23,10 @@ PMP1: 0x0000000000000000-0xffffffffffffffff (A,R,W,X)
 
 Special kernel symbols:
   entry  0xc0200032 (virtual)
-  etext  0xc0204cde (virtual)
-  edata  0xc020a060 (virtual)
-  end    0xc02155cc (virtual)
-Kernel executable memory footprint: 86KB
+  etext  0xc0204f40 (virtual)
+  edata  0xc020b060 (virtual)
+  end    0xc02165cc (virtual)
+Kernel executable memory footprint: 90KB
 memory management: default_pmm_manager
 physcial memory map:
   memory: 0x07e00000, [0x80200000, 0x87ffffff].
@@ -43,7 +43,7 @@ check_pgfault() succeeded!
 check_vmm() succeeded.
 alloc_proc() correct!
 SWAP: manager = fifo swap manager
-BEGIN check_swap: count 1, total 31718
+BEGIN check_swap: count 1, total 31717
 setup Page Table for vaddr 0X1000, so alloc a page
 setup Page Table vaddr 0~4MB OVER!
 set up init env for check_swap begin!
@@ -68,48 +68,40 @@ write Virt Page b in fifo_check_swap
 write Virt Page a in fifo_check_swap
 Store/AMO page fault
 page falut at 0x00001000: K/W
+swap_out: i 0, store page in vaddr 0x2000 to disk swap entry 3
+swap_in: load disk swap entry 2 with swap_page in vadr 0x1000
+write Virt Page b in fifo_check_swap
 Store/AMO page fault
-page falut at 0x00000038: K/W
-not valid addr 38, and  can not find it in vma
-trapframe at 0xffffffffc0208c70
-  zero     0xc0208d44
-  ra       0xc0203f84
-  sp       0xc0208d90
-  gp       0x00000000
-  tp       0x8001be00
-  t0       0xc0200032
-  t1       0xc0208d68
-  t2       0x00000001
-  s0       0x00001000
-  s1       0xc04162b0
-  a0       0xc041b008
-  a1       0x00000200
-  a2       0x00000001
-  a3       0xc041b000
-  a4       0x00088000
-  a5       0x00000001
-  a6       0x00000009
-  a7       0x00000001
-  s2       0x00000017
-  s3       0x00001000
-  s4       0x0000000f
-  s5       0x00001000
-  s6       0x0000000a
-  s7       0x00004000
-  s8       0x0000000d
-  s9       0x00002000
-  s10      0x0000000b
-  s11      0x00000001
-  t3       0xc0204fd0
-  t4       0x00002000
-  t5       0x00000000
-  t6       0x82200000
-  status   0x00046100
-  epc      0xc0203f94
-  badvaddr 0x00000038
-  cause    0x0000000f
-kernel panic at kern/trap/trap.c:218:
-    handle pgfault failed. invalid parameter
+page falut at 0x00002000: K/W
+swap_out: i 0, store page in vaddr 0x3000 to disk swap entry 4
+swap_in: load disk swap entry 3 with swap_page in vadr 0x2000
+write Virt Page c in fifo_check_swap
+Store/AMO page fault
+page falut at 0x00003000: K/W
+swap_out: i 0, store page in vaddr 0x4000 to disk swap entry 5
+swap_in: load disk swap entry 4 with swap_page in vadr 0x3000
+write Virt Page d in fifo_check_swap
+Store/AMO page fault
+page falut at 0x00004000: K/W
+swap_out: i 0, store page in vaddr 0x5000 to disk swap entry 6
+swap_in: load disk swap entry 5 with swap_page in vadr 0x4000
+write Virt Page e in fifo_check_swap
+Store/AMO page fault
+page falut at 0x00005000: K/W
+swap_out: i 0, store page in vaddr 0x1000 to disk swap entry 2
+swap_in: load disk swap entry 6 with swap_page in vadr 0x5000
+write Virt Page a in fifo_check_swap
+Load page fault
+page falut at 0x00001000: K/R
+swap_out: i 0, store page in vaddr 0x2000 to disk swap entry 3
+swap_in: load disk swap entry 2 with swap_page in vadr 0x1000
+check_swap() succeeded!
+++ setup timer interrupts
+this initproc, pid = 1, name = "init"
+To U: "Hello world!!".
+To U: "en.., Bye, Bye. :)"
+kernel panic at kern/process/proc.c:364:
+    process exit!!.
 
 Welcome to the kernel debug monitor!!
 Type 'help' for a list of commands.
